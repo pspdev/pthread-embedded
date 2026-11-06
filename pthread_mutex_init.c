@@ -73,7 +73,12 @@ pthread_mutex_init (pthread_mutex_t * mutex, const pthread_mutexattr_t * attr)
                   ? PTHREAD_MUTEX_DEFAULT : (*attr)->kind);
       mx->ownerThread = 0;
 
-      pte_osSemaphoreCreate(0,&mx->handle);
+      if (pte_osSemaphoreCreate(0, &mx->handle) != PTE_OS_OK)
+        {
+          free (mx);
+          mx = NULL;
+          result = EAGAIN;
+        }
 
     }
 

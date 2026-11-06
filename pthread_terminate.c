@@ -53,6 +53,21 @@ void pthread_terminate(void)
     {
       pte_thread_t * tp, * tpNext;
 
+      /*
+       * The caller must have finished all POSIX worker threads.
+       * Release an implicit handle for the native main thread without
+       * deleting that thread or its OSAL-owned TLS storage.
+       */
+      tp = pte_selfThreadKey != NULL
+        ? (pte_thread_t *) pthread_getspecific (pte_selfThreadKey) : NULL;
+      if (tp != NULL && tp->implicit)
+        {
+          pte_callUserDestroyRoutines (tp->ptHandle);
+          pthread_setspecific (pte_selfThreadKey, NULL);
+          tp->threadId = 0;
+          pte_threadDestroy (tp->ptHandle);
+        }
+
       if (pte_selfThreadKey != NULL)
         {
           /*
@@ -84,7 +99,18 @@ void pthread_terminate(void)
           tp = tpNext;
         }
 
+      pte_threadReuseTop = PTE_THREAD_REUSE_EMPTY;
+      pte_threadReuseBottom = PTE_THREAD_REUSE_EMPTY;
+
       pte_osMutexUnlock(pte_thread_reuse_lock);
+
+      /* Key and thread destruction above still needs these global locks. */
+      pte_osMutexDelete (pte_spinlock_test_init_lock);
+      pte_osMutexDelete (pte_rwlock_test_init_lock);
+      pte_osMutexDelete (pte_cond_test_init_lock);
+      pte_osMutexDelete (pte_cond_list_lock);
+      pte_osMutexDelete (pte_mutex_test_init_lock);
+      pte_osMutexDelete (pte_thread_reuse_lock);
 
       pte_processInitialized = PTE_FALSE;
 
