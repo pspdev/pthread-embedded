@@ -1,5 +1,6 @@
-// Compile with psp-g++ -std=c++11 -c tests/mutex-cxx-destruction.cpp
-// after installing the pthread header and building libstdc++ against it.
+// Compile with the target C++ compiler using -std=c++11 after installing
+// the pthread header and rebuilding libstdc++ against it.
+
 // C++ mutex wrappers must release their allocated native resources.
 #include <mutex>
 #include <type_traits>
