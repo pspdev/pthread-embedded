@@ -150,6 +150,8 @@ int pthread_test_mutex8r();
 
 int pthread_test_mutex9();
 
+int pthread_test_lifecycle1(void);
+
 int pthread_test_valid1();
 int pthread_test_valid2();
 

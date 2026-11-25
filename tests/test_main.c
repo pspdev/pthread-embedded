@@ -462,6 +462,10 @@ void pte_test_main()
       return;
     }
 
+  /* Leave a fresh runtime for reuse1, which must run first. */
+  printf("Lifecycle test #1\n");
+  pthread_test_lifecycle1();
+
   printf("Running tests...\n");
   for (i=0; i<2; i++)
     {

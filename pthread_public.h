@@ -705,13 +705,17 @@ extern "C" {
 
 #endif /*PTE_LEVEL >= PTE_LEVEL_MAX - 1 */
 
-/* We deal here with a gcc issue for posix threading on vita.
-   We would need to change here gcc's gthr-posix.h header, but this
-   got rejected.  So we deal it within this header.  */
+/* Static mutex initializers defer allocation, but initialized mutexes still
+   own resources.  Select GCC's function-initialization paths so C++ mutex
+   wrappers also call pthread_mutex_destroy, including recursive variants.  */
 #ifdef _GTHREAD_USE_MUTEX_INIT_FUNC
 #undef _GTHREAD_USE_MUTEX_INIT_FUNC
 #endif
 #define _GTHREAD_USE_MUTEX_INIT_FUNC 1
+#ifdef _GTHREAD_USE_RECURSIVE_MUTEX_INIT_FUNC
+#undef _GTHREAD_USE_RECURSIVE_MUTEX_INIT_FUNC
+#endif
+#define _GTHREAD_USE_RECURSIVE_MUTEX_INIT_FUNC 1
 
 #ifdef __cplusplus
 }

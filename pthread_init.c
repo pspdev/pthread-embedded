@@ -48,44 +48,39 @@
 
 int pthread_init(void)
 {
+  pte_osMutexHandle *locks[] = {
+    &pte_thread_reuse_lock, &pte_mutex_test_init_lock,
+    &pte_cond_list_lock, &pte_cond_test_init_lock,
+    &pte_rwlock_test_init_lock, &pte_spinlock_test_init_lock
+  };
+  unsigned int initialized = 0;
 
   if (pte_processInitialized)
-    {
-      /*
-       * Ignore if already initialized. this is useful for
-       * programs that uses a non-dll pthread
-       * library. Such programs must call pte_processInitialize() explicitly,
-       * since this initialization routine is automatically called only when
-       * the dll is loaded.
-       */
-      return PTE_TRUE;
-    }
+    return PTE_TRUE;
+
+  if (pte_osInit() != PTE_OS_OK)
+    return PTE_FALSE;
+
+  if (pthread_key_create (&pte_selfThreadKey, NULL) != 0 ||
+      pthread_key_create (&pte_cleanupKey, NULL) != 0)
+    goto fail;
+
+  for (; initialized < sizeof(locks) / sizeof(locks[0]); ++initialized)
+    if (pte_osMutexCreate (locks[initialized]) != PTE_OS_OK)
+      goto fail;
 
   pte_processInitialized = PTE_TRUE;
+  return PTE_TRUE;
 
-  // Must happen before creating keys.
-  pte_osInit();
-
-  /*
-   * Initialize Keys
-   */
-  if ((pthread_key_create (&pte_selfThreadKey, NULL) != 0) ||
-      (pthread_key_create (&pte_cleanupKey, NULL) != 0))
-    {
-      pthread_terminate();
-    }
-
-  /*
-   * Set up the global locks.
-   */
-  pte_osMutexCreate (&pte_thread_reuse_lock);
-  pte_osMutexCreate (&pte_mutex_test_init_lock);
-  pte_osMutexCreate (&pte_cond_list_lock);
-  pte_osMutexCreate (&pte_cond_test_init_lock);
-  pte_osMutexCreate (&pte_rwlock_test_init_lock);
-  pte_osMutexCreate (&pte_spinlock_test_init_lock);
-
-
-  return (pte_processInitialized);
-
+fail:
+  if (pte_cleanupKey != NULL)
+    pthread_key_delete (pte_cleanupKey);
+  if (pte_selfThreadKey != NULL)
+    pthread_key_delete (pte_selfThreadKey);
+  pte_cleanupKey = NULL;
+  pte_selfThreadKey = NULL;
+  while (initialized > 0)
+    pte_osMutexDelete (*locks[--initialized]);
+  pte_osTerminate();
+  return PTE_FALSE;
 }

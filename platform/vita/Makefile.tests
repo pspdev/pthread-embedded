@@ -39,7 +39,8 @@ MUTEX_TEST_OBJS = \
   mutex8.o \
   mutex8e.o \
   mutex8n.o \
-  mutex8r.o
+  mutex8r.o \
+  mutex9.o
 
 MISC_OBJS = \
   main.o \
@@ -47,6 +48,7 @@ MISC_OBJS = \
 
 
 MISC_TEST_OBJS = \
+  lifecycle1.o \
   valid1.o \
   valid2.o \
   self1.o \
