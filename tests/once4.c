@@ -143,8 +143,8 @@ int pthread_test_once4()
   numThreads.i = 0;
 
 //  pte_osMutexCreate(&print_lock);
-//  pte_osMutexCreate(&numThreads.cs);
-//  pte_osMutexCreate(&numOnce.cs);
+  assert(pte_osMutexCreate(&numThreads.cs) == PTE_OS_OK);
+  assert(pte_osMutexCreate(&numOnce.cs) == PTE_OS_OK);
 
   /*
    * Set the priority class to realtime - otherwise normal
@@ -180,8 +180,8 @@ int pthread_test_once4()
   assert(numOnce.i == NUM_ONCE * NUM_THREADS);
   assert(numThreads.i == 0);
 
-//  pte_osMutexDelete(&numOnce.cs);
-//  pte_osMutexDelete(&numThreads.cs);
+  assert(pte_osMutexDelete(numOnce.cs) == PTE_OS_OK);
+  assert(pte_osMutexDelete(numThreads.cs) == PTE_OS_OK);
 //  pte_osMutexDelete(&print_lock);
 
   return 0;
