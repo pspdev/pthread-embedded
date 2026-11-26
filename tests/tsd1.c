@@ -52,7 +52,8 @@
  * - keys are created for each existing thread including the main thread
  * - keys are created for newly created threads
  * - keys are thread specific
- * - destroy routine is called on each thread exit including the main thread
+ * - destroy routine is called on each worker thread exit
+ * - main-thread TSD remains valid until the key is deleted
  *
  * Features Tested:
  * -
@@ -149,6 +150,44 @@ mythread(void * arg)
   /* Exiting the thread will call the key destructor. */
 }
 
+/* A deleted key's slot must be NULL when reused, even in threads that
+ * remain alive across deletion and recreation. No destructor is needed. */
+static void *reuse_thread(void *arg)
+{
+  assert(pthread_setspecific(key, arg) == 0);
+  (void) pthread_barrier_wait(&startBarrier);
+  (void) pthread_barrier_wait(&startBarrier);
+  assert(pthread_getspecific(key) == NULL);
+  assert(pthread_setspecific(key, arg) == 0);
+  assert(pthread_getspecific(key) == arg);
+  return NULL;
+}
+
+static void test_key_reuse(void)
+{
+  pthread_t threads[2];
+  int values[3];
+  int i;
+
+  assert(pthread_barrier_init(&startBarrier, NULL, 3) == 0);
+  assert(pthread_key_create(&key, NULL) == 0);
+  assert(pthread_setspecific(key, &values[0]) == 0);
+  for (i = 0; i < 2; ++i)
+    assert(pthread_create(&threads[i], NULL, reuse_thread, &values[i + 1]) == 0);
+  (void) pthread_barrier_wait(&startBarrier);
+
+  assert(pthread_key_delete(key) == 0);
+  assert(pthread_key_create(&key, NULL) == 0);
+  assert(pthread_getspecific(key) == NULL);
+  (void) pthread_barrier_wait(&startBarrier);
+  for (i = 0; i < 2; ++i)
+    assert(pthread_join(threads[i], NULL) == 0);
+
+  assert(pthread_key_delete(key) == 0);
+  key = NULL;
+  assert(pthread_barrier_destroy(&startBarrier) == 0);
+}
+
 int pthread_test_tsd1()
 {
   int i;
@@ -202,7 +241,14 @@ int pthread_test_tsd1()
       assert(pthread_join(thread[i], (void **) &result) == 0);
     }
 
-//  assert(pthread_key_delete(key) == 0);
+  /* Do not leave a key associated with accesscount[0] across suite runs.
+   * Key deletion must not call its destructor. The implicit main-thread
+   * destructor is exercised separately by lifecycle1. */
+  assert(accesscount[0] == 1);
+  assert(pthread_getspecific(key) == &accesscount[0]);
+  assert(pthread_key_delete(key) == 0);
+  assert(accesscount[0] == 1);
+  key = NULL;
 
   assert(pthread_barrier_destroy(&startBarrier) == 0);
 
@@ -222,6 +268,7 @@ int pthread_test_tsd1()
     }
 
   assert(fail == 0);
+  test_key_reuse();
 
   return (fail);
 }
