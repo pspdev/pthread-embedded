@@ -5,6 +5,21 @@
 #include "test.h"
 #include "implement.h"
 
+static pthread_key_t implicit_key;
+static int implicit_destroyed;
+
+static void destroy_implicit(void *arg)
+{
+  assert(arg == &implicit_destroyed);
+  assert(implicit_destroyed == 0);
+  ++implicit_destroyed;
+
+  /* POSIX permits deleting a key from its destructor. Release the key
+   * itself as well as its value before the runtime discards OSAL TLS. */
+  assert(pthread_key_delete(implicit_key) == 0);
+  implicit_key = NULL;
+}
+
 static void *worker(void *arg)
 {
   return arg;
@@ -38,7 +53,12 @@ int pthread_test_lifecycle1(void)
       /* The joined thread populates the reuse pool. Teardown must discard
        * it and the calling native thread's implicit pthread record. */
       assert(pte_threadReuseTop != PTE_THREAD_REUSE_EMPTY);
+      implicit_destroyed = 0;
+      assert(pthread_key_create(&implicit_key, destroy_implicit) == 0);
+      assert(pthread_setspecific(implicit_key, &implicit_destroyed) == 0);
       pthread_terminate();
+      assert(implicit_destroyed == 1);
+      assert(implicit_key == NULL);
       assert(!pte_processInitialized);
       assert(pte_selfThreadKey == NULL);
       assert(pte_cleanupKey == NULL);
@@ -46,6 +66,7 @@ int pthread_test_lifecycle1(void)
       assert(pte_threadReuseBottom == PTE_THREAD_REUSE_EMPTY);
       pthread_terminate();
       assert(!pte_processInitialized);
+      assert(implicit_destroyed == 1);
 
       assert(pthread_init());
       assert(pte_osThreadGetHandle() == native);
